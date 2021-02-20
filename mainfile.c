@@ -19,32 +19,29 @@ struct Data{
   char *company;
 };
 
-int main(int argc, char const *argv[]) {
+int main() {
   struct Data theData;
+  theData.serial = calloc(100 ,  sizeof(int));
+  theData.product = calloc(100 ,  sizeof(char) * 50);
+  theData.cost = calloc(100 ,  sizeof(float));
+  theData.company = calloc(100 ,  sizeof(char) * 20);
   readInputFile(&theData);
   return 0;
 }
 
-void readInputFile(struct Data data){
+void readInputFile(struct Data *data){
   char line[100];
   FILE *file;
   file = fopen("items.txt", "r");  /* open the file for reading */
-  data.serial = malloc(100 * sizeof(int));
-  data.product = malloc(100 * sizeof(char) * 50);
-  data.cost = malloc(100 * sizeof(float));
-  data.company = malloc(100 * sizeof(char) * 20);
+
   int spot = 0;
+  /* get a line, up to 100 chars from fr.  done if NULL */
   while(fgets(line, 100, file) != NULL){
-    *(data.serial + spot) = spot;
-    printf(line);
-    /* get a line, up to 100 chars from fr.  done if NULL */
-    readLineData(data, &line, spot);
+    //scan in line and put each bit of data into the correct place in the struct
+    sscanf(line, "%s\t%[^\n]\t%lf\t%[^\n]", *(data->serial+spot), *(data->product+spot), *(data->cost+spot), *(data->company+spot));
+    spot++;
+    printf("READ");
   }
   fclose(file);
-}
-
-void readLineData(struct Data data, char *line, int serial){
-    printf("Made it to the readDataLine");
-    sscanf(line, "%i, %lf", *(data.cost+serial));
-    printf("%lf\n", *(data.cost+serial));
+  printf("%s\n", *(data->serial+12));
 }
