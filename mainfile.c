@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
+#include <sys/ipc.h>
 
 /*
   Author: Tyler Tucker
@@ -11,63 +14,58 @@
 
 struct Data{
   int *serial;
-  char *product;
+  char **product;
   double *cost;
-  char *company;
+  char **company;
 };
 
 void readInputFile();
+void test();
 
 int main() {
   struct Data theData;
-  theData.serial = malloc(100 * sizeof(int));
-  theData.product = malloc(100 * sizeof(char) * 50);
-  theData.cost = malloc(100 * sizeof(double));
-  theData.company = malloc(100 * sizeof(char) * 20);
   readInputFile(&theData);
-/*
-  printf("%d\n", theData.serial);
-  printf("%s\n", theData.product);
-  printf("$%.2f\n", theData.cost);
-  printf("%s\n", theData.company);*/
+  int spot = 21;
+  test(&theData);
+  //printf("%d %s $%.2lf %s\n", theData.serial[spot], theData.product[spot][5], theData.cost[spot], theData.company[spot]);
   return 0;
 }
 
 void readInputFile(struct Data *data){
   char line[100]; //string buffer
-  FILE *file;
+  char *tempC; // company buffer
+  char *tempP; // product buffer
+  tempC = malloc(20 * sizeof(char));
+  tempP = malloc(50 * sizeof(char));
+  data->serial = malloc(100 * sizeof(int));
+  data->product = malloc(100 * sizeof(tempP));
+  data->cost = malloc(100 * sizeof(double));
+  data->company = malloc(100 * sizeof(tempC));
+
+  FILE *file; // file object creation
   file = fopen("items.txt", "r");  //open the file for reading
-  int spot = 5;
-  fgets(line, 100, file);
-  fgets(line, 100, file);
-  fgets(line, 100, file);
-  fgets(line, 100, file);
-  fgets(line, 100, file);
 
-
-  char test[] = "$123.3";
-  float num=0;
-  sscanf(test, "$%lf", num);
-  printf("$%.2lf\n", num);
-  //scan in line and put each bit of data into the correct place in the struct
-  sscanf(line, "%d%*c\t%[^$]$%lf at %[^\n]", data->serial+spot,
-          data->product+spot, data->cost+spot, data->company+spot);
-  printf("%d\n", data->serial+spot);
-  printf("%s\n", data->product+spot);
-  printf("$%.2f\n", data->cost+spot);
-  printf("%s\n", data->company+spot);
-  //get a line, up to 100 chars from items.txt done if NULL
-  while(spot < 100){
+  /*
+    Get a line, up to 100 chars from items.txt and parse the information
+    to put into the struct of all the data
+  */
+  for(int i = 0; i < 100; i++){
     fgets(line, 100, file);
-    //scan in line and put each bit of data into the correct place in the struct
-    sscanf(line, "%d%*c\t%[^$]$%lf at %[^\n]", &data->serial+spot,
-        data->product+spot, &data->cost+spot, data->company+spot);
-    spot++;
+    sscanf(line, "%d%*c\t%[^\t] $%lf at %[^\n]", &data->serial[i],
+        tempP, &data->cost[i], tempC);
+    data->product[i] = tempP;
+    data->company[i] = tempC;
+    test(data, i);
+    //printf("%d %s $%.2lf %s\n", data->serial[i], data->product[i], data->cost[i], data->company[i]);
   }
-/*  printf("%d\n", data->serial);
-  printf("%s\n", data->product);
-  printf("$%.2f\n", data->cost);
-  printf("%s\n", data->company);*/
 
+  // Deallocate memory from temporary arrays and file object
+  free(tempP);
+  free(tempC);
   fclose(file);
+}
+
+void test(struct Data *data, int num){
+  printf("%d %s $%.2lf %s\n", data->serial[num], data->product[num], data->cost[num], data->company[num]);
+
 }
