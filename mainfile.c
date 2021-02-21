@@ -9,8 +9,11 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <mqueue.h>
+#include <sys/msg.h>
 
-#define QUEUE_NAME   "/addition"
+
+#define QUEUE_NAME   "/communication"
 #define PERMISSIONS 0660
 #define MAX_MESSAGES 10
 #define MAX_MSG_SIZE 256
@@ -48,6 +51,15 @@ int main() {
   /* name of the shared memory object */
   const char *name = "Shared Data Pool";
 
+  mqd_t qd;   // queue descriptors
+  mqd_t *que = &qd; // queue pointer to pass to helper and customer
+
+  struct mq_attr attr;
+  attr.mq_flags = 0;
+  attr.mq_maxmsg = MAX_MESSAGES;	// The maximum number of messages that can be stored on the queue.
+  attr.mq_msgsize = MAX_MSG_SIZE;	// The maximum size of each message on the given message queue.
+  attr.mq_curmsgs = 0;	// This field represents the number of messages currently on the given queue.
+
   //Getting customers and order of process for customers
   printf("How many customers are there?\n");
   int customers = 0;
@@ -83,11 +95,10 @@ int main() {
           customer(dataPTR, i);
           exit(0);
         }
-      }else if(getpid() < 0){
+      }else if(getpid() < 0){ // if fork fails
         fprintf(stderr, "fork failed..\n");
         exit(1);
-      }else{
-        // waiting for child processes to finish
+      }else{ // waiting for child processes to finish
         wait(NULL);
       }
   }
@@ -136,15 +147,29 @@ void test(struct Data *data, int num){
 
 }
 
-void customer(struct Data *data, int num){
+void customer(struct Data *data, int num, mqd_t *que){
   int gifts;
   time_t t;
   srand((unsigned) time(&t));
   printf("How many gifts does customer %d want?\n", getpid());
   scanf("%d\n", gifts);
   for(int i = 0; i < gifts; i++){
-    int num = rand() % 100;
+    int gift = rand() % 100;
+
+    //Sending customer number and gift serial number to the Helper
+    if ((qd = mq_open (QUEUE_NAME, O_WRONLY | O_CREAT, PERMISSIONS, &attr)) == -1) {
+			perror ("Customer %d could not open the que", num);
+			exit (1);
+		}
+		char out_buffer [MSG_BUFFER_SIZE];
+
+		sprintf (out_buffer, "%d %d", num, gift);
+
+		if (mq_send (qd, out_buffer, strlen (out_buffer) + 1, 0) == -1) {
+			perror ("Customer %d could not send a message in the que", num);
+			exit(1);
+		}
   }
 }
 
-void helper(struct Data *data, int *order){}
+void helper(struct Data *data, int *order, mqd_t *que){}
