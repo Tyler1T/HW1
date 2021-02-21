@@ -48,85 +48,52 @@ int main() {
   /* name of the shared memory object */
   const char *name = "Shared Data Pool";
 
-  printf("How many customers are there?");
+  //Getting customers and order of process for customers
+  printf("How many customers are there?\n");
   int customers = 0;
-  scanf("%d\n", customers);
+  scanf("%d", &customers);
   printf("What order should the customers be helped?\n");
   printf("Please enter a list seperated by spaces to show customer order\n");
-  printf("Ex: 2 6 4 1 3 5");
+  printf("Ex: 2 6 4 1 3 5\n");
   int *order;
-  order = malloc(customer * sizeof(int));
-  for(int i  = 0; i < customer; i++){
-    scanf("%d", order);
-  }
-
-
-  int pid = fork();	// fork for helper process
-
-  for(int i = 0; i < customers; i++){
-    int pid = fork(); // forks for customer processes
+  order = malloc(customers * sizeof(int));
+  for(int i  = 0; i < customers; i++){
+    scanf("%d", &order);
   }
 
   /* shared memory file descriptor */
   int shm_fd;
 
-  /* pointer to shared memory object */
+  for(int i  = 0; i <= customers; i++){
+      if(fork() == 0){
 
-  if (pid < 0){	// fork failed
-    fprintf(stderr, "fork failed..\n");
-    exit(1);
-  }else if(pid == 0){ // Child process AKA Helper
+        /* Create or open a shared memory object */
+        shm_fd = shm_open(name, O_CREAT | O_RDWR, 0666);
 
-    /* Create or open a shared memory object */
-    shm_fd = shm_open(name, O_CREAT | O_RDWR, 0666);
+        /* Set the shared memory object size */
+        ftruncate(shm_fd, SIZE);
 
-    /* Set the shared memory object size */
-    ftruncate(shm_fd, SIZE);
+        /* Map the shared memory object into the current address space */
+        dataPTR = mmap(0, SIZE,  PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
-    /* Map the shared memory object into the current address space */
-    dataPTR = mmap(0, SIZE,  PROT_WRITE, MAP_SHARED, shm_fd, 0);
-    //DO STUFF HERE
-
-    helper(dataPTR, order);
-  }else if(pid < customers){ // Child process AKA Customers
-    /* Create or open a shared memory object */
-    shm_fd = shm_open(name, O_CREAT | O_RDWR, 0666);
-
-    /* Set the shared memory object size */
-    ftruncate(shm_fd, SIZE);
-
-    /* Map the shared memory object into the current address space */
-    dataPTR = mmap(0, SIZE,  PROT_WRITE, MAP_SHARED, shm_fd, 0);
-
-    customer(dataPTR);
-  }else{	// Parent process
-
-    /* open the shared memory object */
-    shm_fd = shm_open(name, O_RDONLY, 0666);
-
-    wait(NULL);
-
-    /* memory map the shared memory object */
-    dataPTR = mmap(0, SIZE, PROT_READ, MAP_SHARED, shm_fd, 0);
-    //Do I even need code above parent is already finished
-    //I think I just need to close say thank you
-    //Create a pause here for customers and helper, maybe...
-
-    /* Unmap the shared memory */
-    munmap(dataPTR, SIZE);
-
-    /* Close the shared memory object */
-    close(shm_fd);
-
-    /* Delete the shared memory object */
-    shm_unlink(name);
-    printf("Thank you!");
+        if(i == 0){ // only need to create 1 Helper process
+          helper(dataPTR, &order);
+          exit(0);
+        }else{ // all other processes are customers
+          customer(dataPTR, i);
+          exit(0);
+        }
+      }else if(getpid() < 0){
+        fprintf(stderr, "fork failed..\n");
+        exit(1);
+      }else{
+        // waiting for child processes to finish
+        wait(NULL);
+      }
   }
 
-  //int spot = 21;
-  //test(&theData);
-  //printf("%d %s $%.2lf %s\n", theData.serial[spot], theData.product[spot][5], theData.cost[spot], theData.company[spot]);
 
+  printf("Thank you!\n");
   return 0;
 }
 
@@ -169,11 +136,11 @@ void test(struct Data *data, int num){
 
 }
 
-void customer(struct Data *data){
+void customer(struct Data *data, int num){
   int gifts;
-  time_t time;
+  time_t t;
   srand((unsigned) time(&t));
-  printf("How many gifts does customer %d want?\n", pid);
+  printf("How many gifts does customer %d want?\n", getpid());
   scanf("%d\n", gifts);
   for(int i = 0; i < gifts; i++){
     int num = rand() % 100;
