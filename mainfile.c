@@ -15,11 +15,9 @@
 
 #define QUEUE_NAME   "/communication"
 #define PERMISSIONS 0660
-#define MAX_MESSAGES 10
+#define MAX_MESSAGES 100
 #define MAX_MSG_SIZE 256
 #define MSG_BUFFER_SIZE MAX_MSG_SIZE + 10
-
-#define MAX 9000000000 // 9 billion times
 
 /*
   Author: Tyler Tucker
@@ -67,8 +65,8 @@ int main() {
   printf("What order should the customers be helped?\n");
   printf("Please enter a list seperated by spaces to show customer order\n");
   printf("Ex: 2 6 4 1 3 5\n");
-  int *order;
-  order = malloc(customers * sizeof(int));
+  uint *order;
+  order = malloc(customers * sizeof(uint));
   for(int i  = 0; i < customers; i++){
     scanf("%d", &order);
   }
@@ -76,7 +74,7 @@ int main() {
   /* shared memory file descriptor */
   int shm_fd;
 
-  for(int i  = 0; i <= customers; i++){
+  for(int i = customers; i >= 0; i--){
       if(fork() == 0){
 
         /* Create or open a shared memory object */
@@ -89,10 +87,10 @@ int main() {
         dataPTR = mmap(0, SIZE,  PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
         if(i == 0){ // only need to create 1 Helper process
-          helper(dataPTR, &order);
+          helper(dataPTR, &order, que, &attr);
           exit(0);
         }else{ // all other processes are customers
-          customer(dataPTR, i);
+          customer(dataPTR, i, que, &attr);
           exit(0);
         }
       }else if(getpid() < 0){ // if fork fails
@@ -147,29 +145,50 @@ void test(struct Data *data, int num){
 
 }
 
-void customer(struct Data *data, int num, mqd_t *que){
-  int gifts;
+void customer(struct Data *data, int num, mqd_t *qd, struct mq_attr *attr){
+  // getting number of gifts this customer will have
+  int giftCount;
   time_t t;
   srand((unsigned) time(&t));
   printf("How many gifts does customer %d want?\n", getpid());
-  scanf("%d\n", gifts);
-  for(int i = 0; i < gifts; i++){
-    int gift = rand() % 100;
+  scanf("%d", &giftCount);
 
-    //Sending customer number and gift serial number to the Helper
-    if ((qd = mq_open (QUEUE_NAME, O_WRONLY | O_CREAT, PERMISSIONS, &attr)) == -1) {
-			perror ("Customer %d could not open the que", num);
-			exit (1);
-		}
-		char out_buffer [MSG_BUFFER_SIZE];
+  // setting gift array length and putting serial numbers in said array
+  char buffer [MSG_BUFFER_SIZE];
+  sprintf(buffer, "%d %d ", num, giftCount);
+  for(int i = 2; i < giftCount + 2; i++){
+    sprintf(buffer + strlen(buffer), "%d ", rand() % 100 + 1);
+  }
 
-		sprintf (out_buffer, "%d %d", num, gift);
+  // opening que to write
+  if (*qd = mq_open(QUEUE_NAME, O_WRONLY | O_CREAT | O_NONBLOCK , PERMISSIONS, *attr) == -1) {
+    perror ("Customer could not open the que");
+    exit (1);
+  }
 
-		if (mq_send (qd, out_buffer, strlen (out_buffer) + 1, 0) == -1) {
-			perror ("Customer %d could not send a message in the que", num);
-			exit(1);
-		}
+
+  // putting customer information in que and sending
+  if (mq_send(*qd, buffer, strlen(buffer) + 1, 0) == -1) {
+    perror ("Customer could not send a message in the que");
+    exit(1);
   }
 }
 
-void helper(struct Data *data, int *order, mqd_t *que){}
+void helper(struct Data *data, uint *order, mqd_t *qd, struct mq_attr *attr){
+  // create and open que to read and write
+  if ((*qd = mq_open(QUEUE_NAME, O_RDONLY, PERMISSIONS, *attr)) == -1) {
+    perror ("Helper: mq_open");
+    exit (1);
+  }
+
+  char buffer [MSG_BUFFER_SIZE];
+  if (mq_receive(*qd, buffer, MSG_BUFFER_SIZE, NULL) == -1) {
+    perror ("Helper: mq_receive");
+    exit (1);
+  }
+
+  for(int i = 0; i < sizeof(buffer); i++){
+    printf("%d", atoi(&buffer[i]));
+  }
+
+}
